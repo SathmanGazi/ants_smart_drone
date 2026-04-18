@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface text-slate-100 antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, rgba(91, 157, 255, 0.12), transparent 60%),
+    radial-gradient(1000px 500px at 110% 10%, rgba(52, 211, 153, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+.panel {
+  @apply bg-surface-raised border border-surface-border rounded-2xl shadow-panel;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition select-none;
+}
+
+.btn-primary {
+  @apply btn bg-brand text-slate-950 hover:bg-brand/90 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.btn-ghost {
+  @apply btn bg-transparent text-slate-200 border border-surface-border hover:bg-white/5;
+}
+
+.kbd {
+  @apply text-[11px] font-mono text-surface-muted border border-surface-border rounded px-1.5 py-0.5;
+}
+
+/* Thin scrollbar for tables */
+.thin-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: #2a3040;
+  border-radius: 6px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

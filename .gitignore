@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Node / Next
+node_modules/
+.next/
+out/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# Model weights (downloaded on first run)
+*.pt
+
+# Runtime storage
+backend/storage/
+storage/
+
+# IDE
+.vscode/
+.idea/
