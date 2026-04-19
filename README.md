@@ -45,8 +45,9 @@ ants_smart_drone/
 │   │   │   ├── detector.py      # YOLOv8 wrapper
 │   │   │   ├── tracker.py       # ByteTrack wrapper
 │   │   │   ├── counter.py       # Unique counting logic
-│   │   │   ├── annotator.py     # Frame overlays
-│   │   │   └── pipeline.py      # End-to-end orchestrator
+│   │   │   ├── annotator.py     # Frame overlays + trail pruning
+│   │   │   ├── pipeline.py      # End-to-end orchestrator
+│   │   │   └── encode.py        # ffmpeg H.264 transcode
 │   │   └── report/
 │   │       └── generator.py     # CSV + XLSX
 │   ├── requirements.txt
@@ -58,6 +59,13 @@ ants_smart_drone/
 │   │   ├── layout.tsx
 │   │   └── globals.css
 │   ├── components/
+│   │   ├── Uploader.tsx         # Drag-and-drop, upload progress
+│   │   ├── JobProgress.tsx      # Live WS progress bar + status badge
+│   │   ├── MetricsCards.tsx     # KPI summary tiles
+│   │   ├── DetectionsTable.tsx  # Counted tracks with filter/search
+│   │   ├── RejectionsPanel.tsx  # Collapsible diagnostic rejection view
+│   │   ├── ResultsPanel.tsx     # Video player + downloads + tables
+│   │   └── ui/                  # Aceternity UI (beams, meteors, hover effects)
 │   ├── lib/
 │   ├── types/
 │   └── package.json

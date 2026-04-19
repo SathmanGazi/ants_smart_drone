@@ -330,6 +330,25 @@ Key components:
   and shows a fallback error card if the browser can't decode the
   processed video (missing ffmpeg on backend).
 
+### 6.1b Visual polish (Aceternity UI)
+
+The landing hero and upload drop-zone use a small set of Aceternity UI
+components layered on top of the existing Tailwind design tokens:
+
+- `BackgroundBeams` — animated SVG beams behind the hero headline.
+- `TextGenerateEffect` — staggered word fade-in on the hero title via
+  `framer-motion`'s `useAnimate` + `stagger`.
+- `HoverEffect` — the three info cards slide a shared `layoutId` glow
+  between cards on hover (`AnimatePresence`).
+- `Meteors` — shooting-star overlay inside the drop zone, driven by a
+  CSS keyframe in `globals.css`.
+
+Every component is additive: the drop-zone still owns its click /
+dragOver / drop handlers, and the meteor overlay uses
+`pointer-events-none` so it cannot intercept user interaction. Brand
+colors remain driven by the existing Tailwind theme, not by the
+Aceternity defaults.
+
 ### 6.2 WebSocket hook
 
 `lib/useJobSocket.ts` handles:
@@ -627,6 +646,42 @@ improves recall on small far-away vehicles. GPU inference (set
 `YOLO_DEVICE=cuda:0`) is a single env change and delivers 3–10×
 speedups depending on hardware.
 
+### 13a. Sustained throughput on long clips
+
+Short clips all hit the ceiling defined by detector + tracker +
+encoder. Long clips (30–50 min, 50k–90k frames) surface a different
+failure mode: **processing fps that decays with frame count**. On a
+51k-frame test input we observed the pipeline starting at ~60 fps and
+degrading to ~12 fps by the halfway mark. GPU utilization was low and
+the card was cool — the bottleneck was on the CPU side.
+
+Root cause: the per-frame HUD refresh was calling
+`UniqueVehicleCounter.summary(fps)` every frame, and `summary()`
+iterates every `TrackState` ever observed to rebuild the counted-rows
+list. That list is `O(N)` per frame and `N` grows monotonically with
+the clip, so the hot loop was effectively `O(N²)` across the run.
+
+Fix: the counter now maintains a running `Counter[class_name]` tally
+that is incremented the instant a track flips to `counted` (and skips
+`inherited` re-IDs, mirroring `summary()`'s semantics). The new
+`counter.live_totals()` reads this tally in `O(num_classes)`. The
+pipeline's two per-frame call sites use `live_totals()`; the
+end-of-run report still calls `summary(fps)` once to produce the
+authoritative row list for CSV / XLSX / JSON.
+
+Effect: per-frame work is now independent of track history. On the
+same 51k-frame clip the processing fps stays flat instead of decaying,
+and the wall-clock for long videos drops proportionally.
+
+Companion fix in [annotator.py](backend/app/cv/annotator.py): the
+motion-trail dict was bounded per-track (deque `maxlen`) but not
+bounded in the number of keys — every track ID ever seen stayed in
+the dict. The annotator now tracks `_trail_last_frame[tid]` and evicts
+entries untouched for more than `_trail_grace_frames` (60 frames ≈ 2 s)
+so RAM stays flat across a 50-min run. The grace window is wide
+enough that a brief occlusion (where ByteTrack reacquires the same ID)
+doesn't wipe the visible trail.
+
 ---
 
 ## 13b. Long videos (30–50 min and beyond)
@@ -853,7 +908,7 @@ first-class diagnostic pathway (the rejections panel and XLSX sheet)
 because counter correctness without observability is just a number on
 a screen.
 
-**Two war stories you can tell:**
+**Three war stories you can tell:**
 
 1. *The "stuck at 99%" bug.*
    `cv2.CAP_PROP_FRAME_COUNT` over-reports by 1–2 frames; the
@@ -866,6 +921,16 @@ a screen.
    the summary. Caught by reading the CSV — user spotted a track with
    `total_hits=1, counted_at_frame=301`, which should have been
    impossible under the stated gates.
+3. *The fps-decay bug on long clips.*
+   A 51k-frame input processed at 60 fps for the first few hundred
+   frames and dropped to 12 fps by the middle. nvidia-smi showed the
+   GPU idle and cool — not a throughput problem, a growing-work
+   problem. The HUD path was calling `counter.summary()` every frame,
+   and `summary()` rebuilt a list over every `TrackState` ever seen.
+   `O(N²)` over the run. Fix was a running `Counter` tally maintained
+   at the exact moment a track flips to counted, read back via
+   `live_totals()` in `O(num_classes)`. Per-frame work is now
+   independent of history and the decay curve is gone.
 
 **Ship-ability:**
 Runs locally end-to-end with one command per side. Gracefully degrades
