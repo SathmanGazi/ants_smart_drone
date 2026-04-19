@@ -3,7 +3,11 @@
     "allow": [
       "Bash(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader)",
       "Bash(pip show *)",
-      "Bash(ffmpeg -version)"
+      "Bash(ffmpeg -version)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('framer-motion'\\); console.log\\('framer-motion ok'\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
     ]
   }
 }

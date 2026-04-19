@@ -39,6 +39,18 @@ body {
   @apply text-[11px] font-mono text-surface-muted border border-surface-border rounded px-1.5 py-0.5;
 }
 
+/* Meteor animation for Meteors component */
+@keyframes meteor {
+  0%   { transform: rotate(215deg) translateX(0);      opacity: 0; }
+  10%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: rotate(215deg) translateX(-600px); opacity: 0; }
+}
+
+.animate-meteor {
+  animation: meteor linear infinite;
+}
+
 /* Thin scrollbar for tables */
 .thin-scroll::-webkit-scrollbar {
   width: 8px;

@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { uploadVideo } from "@/lib/api";
 import { humanBytes } from "@/lib/format";
+import { Meteors } from "@/components/ui/meteors";
 
 const ACCEPTED_EXT = [".mp4"];
 // Matches the backend default (MAX_UPLOAD_MB). Override both if your
@@ -70,12 +71,15 @@ export function Uploader() {
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
         className={clsx(
-          "cursor-pointer rounded-2xl border-2 border-dashed px-8 py-14 transition text-center",
+          "relative overflow-hidden cursor-pointer rounded-2xl border-2 border-dashed px-8 py-14 transition text-center",
           dragging
             ? "border-brand bg-brand/5"
             : "border-surface-border hover:border-brand/60 hover:bg-white/2"
         )}
       >
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <Meteors number={15} />
+        </div>
         <div className="mx-auto w-12 h-12 rounded-xl bg-brand/10 text-brand grid place-items-center mb-4">
           <svg
             xmlns="http://www.w3.org/2000/svg"
