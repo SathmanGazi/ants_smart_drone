@@ -171,7 +171,7 @@ class VideoPipeline:
                                 class_names=detector.class_names,
                             )
                             annotator.tripwire_counts = dict(tripwire.counts)
-                        total_counted, by_class, _ = counter.summary(fps)
+                        total_counted, by_class = counter.live_totals()
 
                         if len(sample_detections) < sample_cap:
                             for i in range(len(tracks)):
@@ -212,7 +212,7 @@ class VideoPipeline:
                             total_frames=total_frames,
                         )
                     else:
-                        total_counted, by_class, _ = counter.summary(fps)
+                        total_counted, by_class = counter.live_totals()
                         annotated = annotator.annotate(
                             frame=frame,
                             tracker_ids=np.zeros((0,), dtype=np.int32),

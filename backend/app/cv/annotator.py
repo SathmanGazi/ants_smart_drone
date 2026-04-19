@@ -36,6 +36,12 @@ class FrameAnnotator:
         self._trails: Dict[int, Deque[Tuple[int, int]]] = defaultdict(
             lambda: deque(maxlen=trail_length)
         )
+        # Last frame each trail was touched, used to evict stale entries
+        # so memory stays bounded on long videos. Grace window is wide
+        # enough to survive a brief occlusion (ByteTrack can reacquire
+        # the same ID) without wiping the visible trail.
+        self._trail_last_frame: Dict[int, int] = {}
+        self._trail_grace_frames = 60
         self.roi_polygon = roi_polygon
         self.tripwire = tripwire
         self.tripwire_labels = tripwire_labels
@@ -74,6 +80,7 @@ class FrameAnnotator:
 
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
             self._trails[tid_int].append((cx, cy))
+            self._trail_last_frame[tid_int] = frame_idx
             trail = list(self._trails[tid_int])
             for p in range(1, len(trail)):
                 cv2.line(out, trail[p - 1], trail[p], color, 2, cv2.LINE_AA)
@@ -88,6 +95,15 @@ class FrameAnnotator:
             )
             label = f"#{tid_int} {cls_name} {confidences[i]:.2f}"
             self._draw_label(out, (x1, y1), label, color)
+
+        # Evict trails whose track hasn't been seen for `_trail_grace_frames`.
+        # Without this the dict accumulates every track_id ever produced —
+        # harmless for correctness, but inflates RAM on long videos.
+        cutoff = frame_idx - self._trail_grace_frames
+        stale = [tid for tid, last in self._trail_last_frame.items() if last < cutoff]
+        for tid in stale:
+            self._trails.pop(tid, None)
+            self._trail_last_frame.pop(tid, None)
 
         # Tripwire line
         if self.tripwire is not None:

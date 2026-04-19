@@ -96,6 +96,12 @@ class UniqueVehicleCounter:
         self.frame_idx = 0
         self._last_seen_ids: set[int] = set()
 
+        # Running by-class tally, kept in sync on each newly-counted
+        # (non-inherited) track. Lets the hot loop read totals in
+        # O(num_classes) instead of re-iterating every TrackState each
+        # frame, which was O(N²) over the run.
+        self._running_by_class: Counter = Counter()
+
     # --- public API -------------------------------------------------------
 
     def update(
@@ -143,6 +149,20 @@ class UniqueVehicleCounter:
                 state.counted = True
                 state.counted_at_frame = frame_idx
                 self.counted_ids.add(tid_int)
+                # Mirror summary()'s semantics: inherited re-IDs are
+                # suppressed from totals (their parent track already
+                # contributes). The `inherited` flag is only set by the
+                # soft-reID path, which also marks `counted` up-front,
+                # so it never reaches this block — guard anyway for
+                # safety if that invariant changes.
+                if not state.inherited:
+                    cls_id = state.majority_class()
+                    cls_name = (
+                        self.class_names[cls_id]
+                        if 0 <= cls_id < len(self.class_names)
+                        else "unknown"
+                    )
+                    self._running_by_class[cls_name] += 1
                 newly_counted.append(tid_int)
 
         # Mark tracks that disappeared this frame
@@ -234,6 +254,16 @@ class UniqueVehicleCounter:
         return st
 
     # --- reporting --------------------------------------------------------
+
+    def live_totals(self) -> Tuple[int, Dict[str, int]]:
+        """
+        Fast path for the per-frame HUD/progress snapshot. Reads from the
+        running tally maintained in update(), so it's O(num_classes) and
+        does not depend on how many tracks have ever existed.
+        Equivalent (for totals/by_class) to the first two elements of
+        summary() but without building the row list.
+        """
+        return sum(self._running_by_class.values()), dict(self._running_by_class)
 
     def summary(self, fps: float) -> Tuple[int, Dict[str, int], List[dict]]:
         by_class: Counter = Counter()
