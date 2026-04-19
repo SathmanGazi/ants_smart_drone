@@ -180,6 +180,46 @@ breakdown, processing duration, video duration, and FPS.
 
 ---
 
+## Engineering assumptions
+
+Decisions made where the brief left room for interpretation, documented
+so the evaluator can agree or push back:
+
+- **Input format:** only `.mp4` is accepted. Both extension and MIME are
+  validated server-side. Other containers (mov, avi, mkv) are rejected
+  up front rather than silently transcoded.
+- **Vehicle classes:** the counted classes are the four COCO vehicle
+  labels — `car`, `motorcycle`, `bus`, `truck` (IDs 2, 3, 5, 7). Other
+  COCO classes emitted by YOLO are filtered out to keep the count
+  semantically "vehicles only."
+- **Frame-level scan, not skip-based.** The pipeline visits every frame.
+  Frame skipping was considered as a speed lever but rejected because it
+  directly reduces recall on small aerial vehicles and violates the
+  brief's "accuracy > speed" spirit. Speed is addressed instead via GPU,
+  model size, and `YOLO_IMGSZ`.
+- **ROI is pixel-space, not georeferenced.** No homography / GIS layer.
+  The polygon is specified in image pixels via `ROI_POLYGON_JSON` and
+  matches the orientation of the source frames.
+- **Single-process background execution.** `asyncio.create_task` runs the
+  pipeline off the event loop via an executor. Concurrent jobs serialize.
+  Scaling to Celery / Redis is a deliberate seam, not a rewrite — see
+  "Scaling path" below.
+- **In-memory job registry.** Restarting the backend clears the registry
+  (output files on disk persist). Acceptable for an MVP; production path
+  is SQLite or Redis behind the same `JobManager` interface.
+- **FPS from video metadata is trusted** for timestamp conversion. If the
+  container lies about its fps, reported timestamps are off by the same
+  factor. Production systems should reconcile with decoded PTS.
+- **GPU is opt-in.** `YOLO_DEVICE=cuda` if available; otherwise `cpu`.
+  The same code path runs both; only throughput changes.
+- **Browser playback requires ffmpeg** on the backend PATH. OpenCV's
+  `mp4v` output isn't decoded by Chrome / Firefox / Safari, so the
+  pipeline post-processes to H.264 + yuv420p + faststart. If ffmpeg is
+  absent, the UI surfaces a clean "can't decode" message with a
+  download link instead of a broken `<video>` element.
+
+---
+
 ## Error handling
 
 - Rejects non-`.mp4` uploads and empty files up front.
@@ -218,9 +258,10 @@ The app is a strong MVP today, but the seams are deliberate:
 - ROI configuration is config-only for now; no in-UI polygon editor.
 - No persistent job history; restarting the backend clears the registry
   (files on disk stay).
-- Re-encoding uses OpenCV's `mp4v` — for max browser compatibility,
-  re-wrap with `ffmpeg -c:v libx264` if needed (hook point documented
-  in `cv/pipeline.py`).
+- ffmpeg must be on the backend `PATH` for the H.264 transcode step.
+  Without it the pipeline still produces `processed.mp4`, but the
+  `mp4v` codec isn't decoded by most browsers — the UI surfaces a
+  graceful error with a download fallback.
 
 ---
 
@@ -229,7 +270,6 @@ The app is a strong MVP today, but the seams are deliberate:
 1. Persist job registry to SQLite so the history survives restart.
 2. Redis-backed pub/sub + Celery worker for real concurrency.
 3. In-UI polygon ROI editor on top of the first video frame.
-4. Swap `mp4v` output for libx264 via `ffmpeg` subprocess for HTML5
-   compatibility across all browsers.
-5. Per-class confidence filters controllable from the UI.
-6. Speed estimation using homography + known scene scale.
+4. Per-class confidence filters controllable from the UI.
+5. Speed estimation using homography + known scene scale.
+6. Live processing-ETA during long jobs (based on rolling fps).

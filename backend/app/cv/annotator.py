@@ -28,6 +28,8 @@ class FrameAnnotator:
         class_names: List[str],
         trail_length: int = 24,
         roi_polygon: Optional[np.ndarray] = None,
+        tripwire: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None,
+        tripwire_labels: Tuple[str, str] = ("A", "B"),
     ) -> None:
         self.class_names = class_names
         self.trail_length = trail_length
@@ -35,6 +37,9 @@ class FrameAnnotator:
             lambda: deque(maxlen=trail_length)
         )
         self.roi_polygon = roi_polygon
+        self.tripwire = tripwire
+        self.tripwire_labels = tripwire_labels
+        self.tripwire_counts: Dict[str, int] = {tripwire_labels[0]: 0, tripwire_labels[1]: 0}
 
     def annotate(
         self,
@@ -84,6 +89,16 @@ class FrameAnnotator:
             label = f"#{tid_int} {cls_name} {confidences[i]:.2f}"
             self._draw_label(out, (x1, y1), label, color)
 
+        # Tripwire line
+        if self.tripwire is not None:
+            (x1, y1), (x2, y2) = self.tripwire
+            p1 = (int(x1), int(y1))
+            p2 = (int(x2), int(y2))
+            cv2.line(out, p1, p2, (60, 220, 255), 2, cv2.LINE_AA)
+            # Endpoint labels for direction clarity
+            cv2.circle(out, p1, 5, (60, 220, 255), -1, cv2.LINE_AA)
+            cv2.circle(out, p2, 5, (60, 220, 255), -1, cv2.LINE_AA)
+
         # HUD
         self._draw_hud(out, frame_idx, total_frames, total_counted, by_class)
         return out
@@ -125,7 +140,8 @@ class FrameAnnotator:
     ) -> None:
         h, w = img.shape[:2]
         panel_w = 260
-        panel_h = 24 + 22 * (1 + max(1, len(by_class)))
+        extra_rows = 1 if self.tripwire is not None else 0
+        panel_h = 24 + 22 * (1 + max(1, len(by_class)) + extra_rows)
         overlay = img.copy()
         cv2.rectangle(overlay, (12, 12), (12 + panel_w, 12 + panel_h), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.55, img, 0.45, 0, dst=img)
@@ -162,6 +178,21 @@ class FrameAnnotator:
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
                 (180, 180, 180),
+                1,
+                cv2.LINE_AA,
+            )
+            y += 22
+
+        if self.tripwire is not None:
+            la, lb = self.tripwire_labels
+            trip_txt = f"tripwire {la}: {self.tripwire_counts.get(la,0)}  {lb}: {self.tripwire_counts.get(lb,0)}"
+            cv2.putText(
+                img,
+                trip_txt,
+                (24, y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (60, 220, 255),
                 1,
                 cv2.LINE_AA,
             )

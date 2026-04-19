@@ -39,9 +39,14 @@ def write_xlsx(
     source_filename: str,
     rejected_rows: List[dict] | None = None,
     rejection_summary: Dict[str, int] | None = None,
+    tripwire_enabled: bool = False,
+    tripwire_counts: Dict[str, int] | None = None,
+    tripwire_crossings: List[dict] | None = None,
 ) -> None:
     rejected_rows = rejected_rows or []
     rejection_summary = rejection_summary or {}
+    tripwire_counts = tripwire_counts or {}
+    tripwire_crossings = tripwire_crossings or []
 
     summary_rows = [
         ("Source file", source_filename),
@@ -96,10 +101,28 @@ def write_xlsx(
         columns=["Rejection reason", "Tracks"],
     )
 
+    tripwire_summary_df = pd.DataFrame(
+        sorted(tripwire_counts.items()), columns=["Direction", "Count"]
+    )
+    tripwire_rows_df = (
+        pd.DataFrame(tripwire_crossings)
+        if tripwire_crossings
+        else pd.DataFrame(
+            columns=["track_id", "frame", "timestamp", "vehicle_class", "direction"]
+        )
+    )
+
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
         by_class_df.to_excel(writer, sheet_name="By class", index=False)
         detail_df.to_excel(writer, sheet_name="Counted tracks", index=False)
+        if tripwire_enabled:
+            tripwire_summary_df.to_excel(
+                writer, sheet_name="Tripwire summary", index=False
+            )
+            tripwire_rows_df.to_excel(
+                writer, sheet_name="Tripwire crossings", index=False
+            )
         rejection_summary_df.to_excel(
             writer, sheet_name="Rejections summary", index=False
         )

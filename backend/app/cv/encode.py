@@ -8,8 +8,23 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+_FFMPEG_FALLBACK = (
+    r"C:\Users\Musa\AppData\Local\Microsoft\WinGet\Packages"
+    r"\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    r"\ffmpeg-8.1-full_build\bin\ffmpeg.exe"
+)
+
+
+def _ffmpeg_exe() -> str | None:
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    p = Path(_FFMPEG_FALLBACK)
+    return str(p) if p.exists() else None
+
+
 def ffmpeg_available() -> bool:
-    return shutil.which("ffmpeg") is not None
+    return _ffmpeg_exe() is not None
 
 
 def transcode_to_h264(src: Path, dst: Path) -> bool:
@@ -20,7 +35,8 @@ def transcode_to_h264(src: Path, dst: Path) -> bool:
 
     Returns True on success, False if ffmpeg is missing or errors.
     """
-    if not ffmpeg_available():
+    exe = _ffmpeg_exe()
+    if not exe:
         logger.warning(
             "ffmpeg not found on PATH. Skipping H.264 transcode — the "
             "processed video may fail to play in browsers. Install ffmpeg "
@@ -29,7 +45,7 @@ def transcode_to_h264(src: Path, dst: Path) -> bool:
         return False
 
     cmd = [
-        "ffmpeg",
+        _ffmpeg_exe(),
         "-y",
         "-loglevel", "error",
         "-i", str(src),

@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     # Leave empty to disable (count everywhere).
     roi_polygon_json: Optional[str] = Field(default=None, alias="ROI_POLYGON_JSON")
 
+    # Optional virtual tripwire line for directional counting.
+    # JSON pair of points in pixel space: "[[x1,y1],[x2,y2]]".
+    # Labels default to "A" / "B"; swap if sides come out reversed.
+    tripwire_line_json: Optional[str] = Field(default=None, alias="TRIPWIRE_LINE_JSON")
+    tripwire_label_a: str = Field(default="A", alias="TRIPWIRE_LABEL_A")
+    tripwire_label_b: str = Field(default="B", alias="TRIPWIRE_LABEL_B")
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, v):

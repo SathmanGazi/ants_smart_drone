@@ -5,6 +5,7 @@ export interface JobProgress {
   total_frames: number;
   percent: number;
   fps_processing: number;
+  eta_sec?: number | null;
   message?: string | null;
 }
 
@@ -53,6 +54,14 @@ export interface RejectedTrack {
   rejection_reason: string;
 }
 
+export interface TripwireCrossing {
+  track_id: number;
+  frame: number;
+  timestamp: number;
+  vehicle_class: string;
+  direction: string;
+}
+
 export interface JobResult {
   job_id: string;
   total_unique: number;
@@ -64,6 +73,9 @@ export interface JobResult {
   counted_tracks: TrackReport[];
   rejected_tracks: RejectedTrack[];
   rejection_summary: Record<string, number>;
+  tripwire_enabled?: boolean;
+  tripwire_counts?: Record<string, number>;
+  tripwire_crossings?: TripwireCrossing[];
   sample_detections: DetectionRow[];
   processed_video_url: string;
   csv_url: string;

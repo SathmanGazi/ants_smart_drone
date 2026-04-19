@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader)",
+      "Bash(pip show *)",
+      "Bash(ffmpeg -version)"
+    ]
+  }
+}

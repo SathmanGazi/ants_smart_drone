@@ -30,11 +30,18 @@ def _make_progress_cb(job_id: str, loop: asyncio.AbstractEventLoop):
         percent = 0.0
         if total_frames > 0:
             percent = round(min(100.0, frame_idx * 100.0 / total_frames), 2)
+        # ETA = remaining frames / current cumulative fps. Cumulative
+        # (not instantaneous) smooths the estimate so the bar's ETA
+        # doesn't thrash on per-frame variance.
+        eta: float | None = None
+        if processing_fps > 0 and total_frames > frame_idx:
+            eta = round((total_frames - frame_idx) / processing_fps, 1)
         progress = JobProgress(
             frame=frame_idx,
             total_frames=total_frames,
             percent=percent,
             fps_processing=round(processing_fps, 2),
+            eta_sec=eta,
         )
         asyncio.run_coroutine_threadsafe(
             job_manager.set_progress(job_id, progress), loop
@@ -88,6 +95,7 @@ async def run_job(job_id: str) -> None:
             total_frames=result.total_frames,
             percent=100.0,
             fps_processing=0.0,
+            eta_sec=0.0,
             message="Finalizing reports",
         )
         await job_manager.set_progress(job_id, done_progress)
@@ -120,6 +128,9 @@ async def run_job(job_id: str) -> None:
             source_filename=job.filename,
             rejected_rows=result.rejected_tracks,
             rejection_summary=result.rejection_summary,
+            tripwire_enabled=result.tripwire_enabled,
+            tripwire_counts=result.tripwire_counts,
+            tripwire_crossings=result.tripwire_crossings,
         )
 
         await job_manager.set_status(job_id, JobStatus.COMPLETED)

@@ -24,6 +24,7 @@ class JobProgress(BaseModel):
     total_frames: int = 0
     percent: float = 0.0
     fps_processing: float = 0.0
+    eta_sec: Optional[float] = None
     message: Optional[str] = None
 
 
@@ -72,6 +73,14 @@ class RejectedTrack(BaseModel):
     rejection_reason: str
 
 
+class TripwireCrossing(BaseModel):
+    track_id: int
+    frame: int
+    timestamp: float
+    vehicle_class: str
+    direction: str
+
+
 class JobResult(BaseModel):
     job_id: str
     total_unique: int
@@ -83,6 +92,9 @@ class JobResult(BaseModel):
     counted_tracks: List[TrackReport]
     rejected_tracks: List[RejectedTrack] = Field(default_factory=list)
     rejection_summary: Dict[str, int] = Field(default_factory=dict)
+    tripwire_enabled: bool = False
+    tripwire_counts: Dict[str, int] = Field(default_factory=dict)
+    tripwire_crossings: List[TripwireCrossing] = Field(default_factory=list)
     # Keep detections optional/bounded in API payload to avoid huge responses.
     sample_detections: List[DetectionRow] = Field(default_factory=list)
     processed_video_url: str

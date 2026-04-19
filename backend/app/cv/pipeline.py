@@ -15,6 +15,7 @@ from app.cv.annotator import FrameAnnotator
 from app.cv.counter import UniqueVehicleCounter
 from app.cv.detector import VehicleDetector
 from app.cv.tracker import VehicleTracker
+from app.cv.tripwire import TripwireCounter, parse_tripwire
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,9 @@ class PipelineResult:
     sample_detections: List[dict]
     processed_video_path: Path
     result_json_path: Path
+    tripwire_enabled: bool = False
+    tripwire_counts: Dict[str, int] = None  # type: ignore[assignment]
+    tripwire_crossings: List[dict] = None  # type: ignore[assignment]
 
 
 class VideoPipeline:
@@ -87,8 +91,22 @@ class VideoPipeline:
         counter = UniqueVehicleCounter(
             class_names=detector.class_names, roi_polygon=roi_np
         )
+
+        trip_line = parse_tripwire(settings.tripwire_line_json)
+        tripwire: Optional[TripwireCounter] = None
+        if trip_line is not None:
+            tripwire = TripwireCounter(
+                p1=trip_line[0],
+                p2=trip_line[1],
+                label_a=settings.tripwire_label_a,
+                label_b=settings.tripwire_label_b,
+            )
+
         annotator = FrameAnnotator(
-            class_names=detector.class_names, roi_polygon=roi_np
+            class_names=detector.class_names,
+            roi_polygon=roi_np,
+            tripwire=trip_line,
+            tripwire_labels=(settings.tripwire_label_a, settings.tripwire_label_b),
         )
 
         # NOTE: mp4v is broadly writable with OpenCV but not universally
@@ -141,6 +159,18 @@ class VideoPipeline:
                             if tracks.confidence is not None
                             else np.zeros(len(tracks), dtype=np.float32),
                         )
+                        if tripwire is not None:
+                            tripwire.update(
+                                frame_idx=frame_idx,
+                                fps=fps,
+                                tracker_ids=tracks.tracker_id,
+                                xyxy=tracks.xyxy,
+                                class_ids=tracks.class_id
+                                if tracks.class_id is not None
+                                else np.zeros(len(tracks), dtype=np.int32),
+                                class_names=detector.class_names,
+                            )
+                            annotator.tripwire_counts = dict(tripwire.counts)
                         total_counted, by_class, _ = counter.summary(fps)
 
                         if len(sample_detections) < sample_cap:
@@ -226,6 +256,11 @@ class VideoPipeline:
         total_unique, by_class, counted_rows = counter.summary(fps)
         rejected_rows, rejection_summary = counter.rejection_report(fps)
 
+        if tripwire is not None:
+            tw_counts, tw_rows = tripwire.report()
+        else:
+            tw_counts, tw_rows = {}, []
+
         result = PipelineResult(
             total_unique=total_unique,
             by_class=by_class,
@@ -239,6 +274,9 @@ class VideoPipeline:
             sample_detections=sample_detections,
             processed_video_path=self.output_video_path,
             result_json_path=self.result_json_path,
+            tripwire_enabled=tripwire is not None,
+            tripwire_counts=tw_counts,
+            tripwire_crossings=tw_rows,
         )
 
         payload = {
@@ -251,6 +289,9 @@ class VideoPipeline:
             "counted_tracks": result.counted_tracks,
             "rejected_tracks": result.rejected_tracks,
             "rejection_summary": result.rejection_summary,
+            "tripwire_enabled": result.tripwire_enabled,
+            "tripwire_counts": result.tripwire_counts,
+            "tripwire_crossings": result.tripwire_crossings,
             "sample_detections": result.sample_detections,
         }
         self.result_json_path.write_text(json.dumps(payload, indent=2))

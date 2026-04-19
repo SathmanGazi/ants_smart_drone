@@ -6,6 +6,7 @@ import type { JobResult } from "@/types";
 import { DetectionsTable } from "./DetectionsTable";
 import { MetricsCards } from "./MetricsCards";
 import { RejectionsPanel } from "./RejectionsPanel";
+import { TripwirePanel } from "./TripwirePanel";
 
 interface Props {
   result: JobResult;
@@ -67,6 +68,13 @@ export function ResultsPanel({ result }: Props) {
           )}
         </div>
       </div>
+
+      {result.tripwire_enabled && (
+        <TripwirePanel
+          counts={result.tripwire_counts ?? {}}
+          crossings={result.tripwire_crossings ?? []}
+        />
+      )}
 
       <DetectionsTable tracks={result.counted_tracks} />
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { JobProgress as JobProgressT, JobStatus } from "@/types";
+import { formatDuration } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 
 interface Props {
@@ -54,14 +55,21 @@ export function JobProgress({ status, progress, connected, error, filename }: Pr
             style={{ width: `${Math.min(100, pct)}%` }}
           />
         </div>
-        <div className="mt-2 text-xs text-surface-muted">
-          {status === "processing"
-            ? `Processing at ~${progress?.fps_processing?.toFixed(1) ?? "—"} fps`
-            : status === "queued"
-            ? "Waiting to start…"
-            : status === "completed"
-            ? "Complete."
-            : "Stopped."}
+        <div className="mt-2 flex items-center justify-between gap-3 text-xs text-surface-muted">
+          <span>
+            {status === "processing"
+              ? `Processing at ~${progress?.fps_processing?.toFixed(1) ?? "—"} fps`
+              : status === "queued"
+              ? "Waiting to start…"
+              : status === "completed"
+              ? "Complete."
+              : "Stopped."}
+          </span>
+          {status === "processing" && progress?.eta_sec != null && progress.eta_sec > 0 && (
+            <span className="tabular-nums">
+              ~{formatDuration(progress.eta_sec)} remaining
+            </span>
+          )}
         </div>
       </div>
 
